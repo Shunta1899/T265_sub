@@ -1,0 +1,76 @@
+using UnityEngine;
+using Unity.Robotics.ROSTCPConnector;
+using RosMessageTypes.Geometry; //Changed!!
+using RosMessageTypes.Nav;
+
+public class t265: MonoBehaviour
+{
+    public load_console3 console;
+    public low_pass_filter low_Pass_Filter;
+
+    //position rotation
+    public float vehicle_position_x = 0.0f;
+    public float vehicle_rotation_z = 0.0f;
+    public float vehicle_rotation_x = 0.0f;
+    public float vehicle_rotation_y = 0.0f;
+    bool initial_odom = true;
+    public float initial_vehicle_rotation_z = 0.0f;
+    public float initial_vehicle_rotation_y = 0.0f;
+    public float initial_vehicle_position_x = 0.0f;
+    public int t265_error;
+
+    //velocity
+    float second;
+    float[] location = new float[2];
+    float[] error_check = new float[3];
+    public float feedback_linear;
+    public float average_feedback_linear;
+    public float ascent;
+    public float descent;
+
+    void Start()
+    {
+        // サブスクライブするメッセージのクラス名をTwistからTwistMsgに変更
+        ROSConnection.instance.Subscribe<OdometryMsg>("/camera/odom/sample", odom);
+    }
+    // サブスクライブするメッセージのクラス名をTwistからTwistMsgに変更
+
+    
+    void odom(OdometryMsg Msg2)
+    {
+        //position rotation
+        if(initial_odom == true)
+        {
+            initial_vehicle_rotation_z = (float)Msg2.pose.pose.orientation.z;
+            initial_vehicle_rotation_y = (float)Msg2.pose.pose.orientation.y;
+            initial_vehicle_position_x = (float)Msg2.pose.pose.position.x;
+            initial_odom = false;
+        }
+        vehicle_position_x = (float)Msg2.pose.pose.position.x - (float)initial_vehicle_position_x;
+        vehicle_rotation_z = ((float)Msg2.pose.pose.orientation.z - (float)initial_vehicle_rotation_z);
+        vehicle_rotation_x = (float)Msg2.pose.pose.orientation.x;
+
+
+        vehicle_rotation_y = -((float)Msg2.pose.pose.orientation.y - (float)initial_vehicle_rotation_y)*100;
+        ascent = 10 - Mathf.Abs(vehicle_rotation_y);
+        descent = -vehicle_rotation_y;
+
+        if (vehicle_rotation_y > 15)
+        {
+            vehicle_rotation_y = 0;
+        }
+        
+
+
+        //velocity
+        second += Time.deltaTime;
+        if (second > 0.01f)
+        {
+            location[0] = vehicle_position_x;
+            feedback_linear = (location[0] - location[1]) * 100;
+            location[1] = location[0];
+            second = 0;
+        }
+
+    }
+}
